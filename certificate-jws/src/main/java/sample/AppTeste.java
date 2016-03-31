@@ -1,121 +1,103 @@
 package sample;
 
+import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.util.Enumeration;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.PrivateKey;
+import java.security.Provider;
+import java.security.Security;
+import java.security.UnrecoverableKeyException;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.util.EntityUtils;
-
-import br.gov.frameworkdemoiselle.certificate.ui.util.ConectionException;
+import br.gov.frameworkdemoiselle.certificate.signer.factory.PKCS7Factory;
+import br.gov.frameworkdemoiselle.certificate.signer.pkcs7.PKCS7Signer;
+import br.gov.frameworkdemoiselle.certificate.signer.pkcs7.bc.policies.ADRBCMS_2_1;
 import br.gov.frameworkdemoiselle.certificate.ui.util.Utils;
 
 public class AppTeste {
 
-	private final int BUFFER_SIZE = 4096;
+	private final static int BUFFER_SIZE = 4096;
 
-	public static void main(String[] args) throws IOException {
+	public static void main(String[] args) throws IOException, KeyStoreException, NoSuchProviderException, NoSuchAlgorithmException, CertificateException, UnrecoverableKeyException {
 
-		String jnlpIdentifier = "ed247156-5e03-45bb-b734-26befe29ee58";
+		String jnlpIdentifier = "1c7913ac-c5a3-4ad7-9706-d85b4dc04519";
 		String jnlpService = "http://localhost:8080/certificate-jws-web/api/filemanager";
 
 		System.out.println("jnlp.identifier..: " + jnlpIdentifier);
 		System.out.println("jnlp.service.....: " + jnlpService);
+		
+		//Apagar
+		
+		String configName = "/home/01534562567/drivers.config";
+		String PIN = "****";
+		Certificate[] certificates = null;
+		Provider p = new sun.security.pkcs11.SunPKCS11(configName);
+		Security.addProvider(p);
 
+		KeyStore keyStore = KeyStore.getInstance("PKCS11", "SunPKCS11-Provedor");
+		keyStore.load(null, PIN.toCharArray());
+
+		String alias = (String) keyStore.aliases().nextElement();
+		PrivateKey privateKey = (PrivateKey) keyStore.getKey(alias,	PIN.toCharArray());
+
+        /* Parametrizando o objeto doSign */
+        PKCS7Signer signer = PKCS7Factory.getInstance().factoryDefault();
+        signer.setCertificates(keyStore.getCertificateChain(alias));
+        signer.setPrivateKey((PrivateKey) keyStore.getKey(alias, null));
+        signer.setSignaturePolicy(new ADRBCMS_2_1());
+        signer.setAttached(true);
+		
+		
 		Utils utils = new Utils();
 		// //Faz o download do conteudo a ser assinado
-		String conexao = jnlpService.concat("/download/").concat(jnlpIdentifier);
+		String conexao = jnlpService.concat("/download/")
+				.concat(jnlpIdentifier);
 		System.out.println("Conectando em....: " + conexao);
-		byte[] content = utils.downloadFromUrl(conexao);
+		byte[] zip = utils.downloadFromUrl(conexao);
 		System.out.println(System.getProperty("user.home"));
-		utils.writeContentToDisk(content, System.getProperty("user.home").concat(File.separator).concat("teste-resultado/").concat("resultado.zip"));
-		
-		InputStream in = new ByteArrayInputStream(content);
-		ZipInputStream zip = new ZipInputStream(in);
+		utils.writeContentToDisk(
+				zip,
+				System.getProperty("user.home").concat(File.separator)
+						.concat("teste-resultado/").concat("resultado.zip"));
+
+		InputStream in = new ByteArrayInputStream(zip);
+		ZipInputStream zipStream = new ZipInputStream(in);
 		ZipEntry entry = null;
-		
-		while ((entry = zip.getNextEntry()) != null) {
-			System.out.println("Extracting: " +entry);
-            int count;
-//            byte data[] = new byte[BUFFER];
-//            // write the files to the disk
-//            FileOutputStream fos = new 
-//	      FileOutputStream(entry.getName());
-//            dest = new 
-//              BufferedOutputStream(fos, BUFFER);
-//            while ((count = zis.read(data, 0, BUFFER)) 
-//              != -1) {
-//               dest.write(data, 0, count);
-//            }
-//            dest.flush();
-//            dest.close();			
-		}
-		
-		
-	}
+		BufferedOutputStream dest = null;
 
-	public static int listaArquivos(String UrlToDownload) {
-		ByteArrayOutputStream outputStream = null;
-		int qtd = 0;
-		try {
-			HttpClient client = new DefaultHttpClient();
-			HttpGet request = new HttpGet(UrlToDownload);
-			HttpResponse response = client.execute(request);
-
-			HttpEntity entity = response.getEntity();
-
-			qtd = Integer.parseInt(EntityUtils.toString(entity));
-
-		} catch (IOException e) {
-			e.printStackTrace();
-			return 0;
-		}
-		return qtd;
-	}
-
-	public byte[] downloadFromUrl(String UrlToDownload) {
-		ByteArrayOutputStream outputStream = null;
-		try {
-			System.out
-					.println("br.gov.serpro.certificate.ui.util.Utils.downloadFromUrl()");
-			URL url = new URL(UrlToDownload);
-			outputStream = new ByteArrayOutputStream();
-			byte[] chunk = new byte[BUFFER_SIZE];
-			int bytesRead;
-			HttpURLConnection con = (HttpURLConnection) url.openConnection();
-			int responseCode = con.getResponseCode();
-			System.out.println("Response Code...: " + responseCode);
-			if (responseCode != HttpURLConnection.HTTP_OK) {
-				Logger.getLogger(Utils.class.getName()).log(Level.SEVERE,
-						"Server returned non-OK code: {0}", responseCode);
-				throw new ConectionException("Server returned non-OK code: "
-						+ responseCode);
-			} else {
-				InputStream stream = con.getInputStream();
-
-				while ((bytesRead = stream.read(chunk)) > 0) {
-					outputStream.write(chunk, 0, bytesRead);
-				}
+		while ((entry = zipStream.getNextEntry()) != null) {
+			System.out.println("Extracting: " + entry);
+			// write the files to the disk
+			int count;
+			FileOutputStream stream = new FileOutputStream(entry.getName());
+			byte content[] = new byte[BUFFER_SIZE];
+			dest = new BufferedOutputStream(stream, BUFFER_SIZE);
+			while ((count = zipStream.read(content, 0, BUFFER_SIZE)) != -1) {
+				dest.write(content, 0, count);
 			}
+			dest.flush();
+			dest.close();
+			System.out.println("Assinando: " + entry);
+            byte[] signed = signer.signer(content);
+            // Grava o conteudo assinado no disco para verificar o resultado
+            utils.writeContentToDisk(signed, System.getProperty("user.home").concat("/teste-resultado/").concat(File.separator).concat("resultado.p7s"));
 
-		} catch (IOException e) {
-			e.printStackTrace();
-			return null;
+			
+			
 		}
-		return outputStream.toByteArray();
+		zipStream.close();
+
 	}
 
 }

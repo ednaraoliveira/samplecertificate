@@ -106,12 +106,9 @@ public class DownloadAndUploadService {
 		Map<String, String> files = TokenManager.get(fileID);
 		ResponseBuilder response = null;
 		String downloadLocation = context.getRealPath("").concat(File.separator).concat(SERVER_DOWNLOAD_LOCATION_FOLDER);
-
-		String nameZip = fileID+".zip"; 
-		OutputStream fos = new FileOutputStream(downloadLocation+"/"+nameZip);
 		
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
-		ZipOutputStream zipOut = new ZipOutputStream(fos);
+		ZipOutputStream zipOut = new ZipOutputStream(out);
 
 		for (String fileName : files.keySet()) {
 
@@ -129,28 +126,17 @@ public class DownloadAndUploadService {
 			
 			zipOut.putNextEntry(new ZipEntry(fileName));
 			zipOut.write(data);
+			zipOut.setLevel(0);
 			zipOut.closeEntry();
 			
 			System.out.println("Finishedng file " + fileName);
 		}
 		
 		zipOut.close();
-		//out.close();
-		//System.out.println(out);
-		fos.close();
+		out.close();
 		
-		
-		//Enviar o ZIP
-		
-		try {
-			// Carrega o arquivo utilizando new io
-			java.nio.file.Path path = Paths.get(downloadLocation.concat(nameZip));
-			data = Files.readAllBytes(path);
+		data = out.toByteArray();
 
-		} catch (IOException ex) {
-			Logger.getLogger(DownloadAndUploadService.class.getName()).log(Level.SEVERE, null, ex);
-		}
-		
 		response = Response.ok((Object) data);
 		response.header("Content-Disposition", "attachment; filename=" + fileID +".zip");
 		return response.build();

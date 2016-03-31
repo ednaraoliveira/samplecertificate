@@ -1,9 +1,11 @@
 package sample.token;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 public class AppTeste {
 	
@@ -46,9 +48,6 @@ public class AppTeste {
 		map.get("1").put("teste1","teste");
 		System.out.println(map.get("1").size());
 		System.out.println(map.get("1").get("teste1"));
-		
-
-		
 	}
 	
 
