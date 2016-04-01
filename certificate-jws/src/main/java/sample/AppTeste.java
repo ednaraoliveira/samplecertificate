@@ -2,9 +2,9 @@ package sample;
 
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.KeyStore;
@@ -17,6 +17,9 @@ import java.security.Security;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -27,11 +30,14 @@ import br.gov.frameworkdemoiselle.certificate.ui.util.Utils;
 
 public class AppTeste {
 
-	private final static int BUFFER_SIZE = 4096;
+	private final static int BUFFER_SIZE = 1024;
 
+	public static Map<String, byte[]> files = Collections.synchronizedMap(new HashMap<String, byte[]>());
+	
+	
 	public static void main(String[] args) throws IOException, KeyStoreException, NoSuchProviderException, NoSuchAlgorithmException, CertificateException, UnrecoverableKeyException {
 
-		String jnlpIdentifier = "1c7913ac-c5a3-4ad7-9706-d85b4dc04519";
+		String jnlpIdentifier = "5ef7b056-41e4-41b5-af63-7e88f5fe304c";
 		String jnlpService = "http://localhost:8080/certificate-jws-web/api/filemanager";
 
 		System.out.println("jnlp.identifier..: " + jnlpIdentifier);
@@ -40,7 +46,7 @@ public class AppTeste {
 		//Apagar
 		
 		String configName = "/home/01534562567/drivers.config";
-		String PIN = "****";
+		String PIN = "qwaszx12!";
 		Certificate[] certificates = null;
 		Provider p = new sun.security.pkcs11.SunPKCS11(configName);
 		Security.addProvider(p);
@@ -56,48 +62,46 @@ public class AppTeste {
         signer.setCertificates(keyStore.getCertificateChain(alias));
         signer.setPrivateKey((PrivateKey) keyStore.getKey(alias, null));
         signer.setSignaturePolicy(new ADRBCMS_2_1());
-        signer.setAttached(true);
+        signer.setAttached(false);
 		
 		
 		Utils utils = new Utils();
 		// //Faz o download do conteudo a ser assinado
-		String conexao = jnlpService.concat("/download/")
-				.concat(jnlpIdentifier);
+		String conexao = jnlpService.concat("/download/").concat(jnlpIdentifier);
 		System.out.println("Conectando em....: " + conexao);
 		byte[] zip = utils.downloadFromUrl(conexao);
 		System.out.println(System.getProperty("user.home"));
-		utils.writeContentToDisk(
-				zip,
-				System.getProperty("user.home").concat(File.separator)
-						.concat("teste-resultado/").concat("resultado.zip"));
+		utils.writeContentToDisk(zip,System.getProperty("user.home").concat(File.separator).concat("teste-resultado/").concat("resultado.zip"));
 
 		InputStream in = new ByteArrayInputStream(zip);
 		ZipInputStream zipStream = new ZipInputStream(in);
 		ZipEntry entry = null;
+		
 		BufferedOutputStream dest = null;
-
+		
+		long tempoInicio = System.currentTimeMillis();
 		while ((entry = zipStream.getNextEntry()) != null) {
 			System.out.println("Extracting: " + entry);
-			// write the files to the disk
-			int count;
-			FileOutputStream stream = new FileOutputStream(entry.getName());
-			byte content[] = new byte[BUFFER_SIZE];
-			dest = new BufferedOutputStream(stream, BUFFER_SIZE);
-			while ((count = zipStream.read(content, 0, BUFFER_SIZE)) != -1) {
-				dest.write(content, 0, count);
-			}
-			dest.flush();
-			dest.close();
-			System.out.println("Assinando: " + entry);
-            byte[] signed = signer.signer(content);
-            // Grava o conteudo assinado no disco para verificar o resultado
-            utils.writeContentToDisk(signed, System.getProperty("user.home").concat("/teste-resultado/").concat(File.separator).concat("resultado.p7s"));
 
-			
-			
+			FileInputStream stream = new FileInputStream(entry.getName());
+			ByteArrayOutputStream bos = new ByteArrayOutputStream();
+
+			byte[] buf = new byte[BUFFER_SIZE];
+            for (int readNum; (readNum = stream.read(buf)) != -1;) {
+                bos.write(buf, 0, readNum); //no doubt here is 0
+            }
+	        byte[] content = bos.toByteArray();
+	        bos.close();
+	        System.out.println("Tempo para ler: "+(System.currentTimeMillis()-tempoInicio));
+	        System.out.println("Assinando: " + entry);
+            byte[] signed = signer.signer(content);
+            System.out.println("Tempo para assinar: "+(System.currentTimeMillis()-tempoInicio));
+            //Grava o conteudo assinado no disco para verificar o resultado
+            utils.writeContentToDisk(content, System.getProperty("user.home").concat("/teste-resultado/").concat(File.separator).concat(entry.getName()));
+            utils.writeContentToDisk(signed, System.getProperty("user.home").concat("/teste-resultado/").concat(File.separator).concat(entry.getName()+".p7s"));
+            files.put(entry.getName(), signed);
 		}
 		zipStream.close();
-
+		System.out.println("Tempo Total: "+(System.currentTimeMillis()-tempoInicio));
 	}
-
 }
