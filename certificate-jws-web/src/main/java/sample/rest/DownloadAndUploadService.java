@@ -45,6 +45,7 @@ public class DownloadAndUploadService {
 	private final String SERVER_DOWNLOAD_LOCATION_FOLDER = "file/source/";
 	private final String SERVER_UPLOAD_LOCATION_FOLDER = "file/signature/";
 	private final String SIGNATURE_EXTENSION = ".p7s";
+	private final String SIGNATURE_ZIP = ".zip";
 	private final int FILE_BUFFER_SIZE = 4096;
 
 	@Context
@@ -148,20 +149,16 @@ public class DownloadAndUploadService {
 	@Consumes(MediaType.APPLICATION_OCTET_STREAM)
 	public Response upload(InputStream payload) {
 		try {
-			System.out
-					.println("br.gov.serpro.jnlp.rest.DownloadAndUploadService.upload()");
+			System.out.println("br.gov.serpro.jnlp.rest.DownloadAndUploadService.upload()");
 
-			String uploadLocation = context.getRealPath("")
-					.concat(File.separator)
-					.concat(SERVER_UPLOAD_LOCATION_FOLDER);
+			String uploadLocation = context.getRealPath("").concat(File.separator).concat(SERVER_UPLOAD_LOCATION_FOLDER);
 
 			File directory = new File(uploadLocation);
 			if (!directory.exists()) {
 				if (directory.mkdirs()) {
 					System.out.println("Multiple directories are created.");
 				} else {
-					System.out
-							.println("Failed to create multiple directories.");
+					System.out.println("Failed to create multiple directories.");
 				}
 			}
 
@@ -182,13 +179,11 @@ public class DownloadAndUploadService {
 			Calendar calendar = new GregorianCalendar();
 			DateFormat df = new SimpleDateFormat("yyyyMMdd_HHmmssSSS");
 
-			java.nio.file.Path path = Paths.get(uploadLocation.concat(
-					df.format(calendar.getTime())).concat(SIGNATURE_EXTENSION));
+			java.nio.file.Path path = Paths.get(uploadLocation.concat(df.format(calendar.getTime())).concat(SIGNATURE_ZIP));
 			Files.write(path, ba.toByteArray(), StandardOpenOption.CREATE);
 
 		} catch (IOException ex) {
-			Logger.getLogger(DownloadAndUploadService.class.getName()).log(
-					Level.SEVERE, null, ex);
+			Logger.getLogger(DownloadAndUploadService.class.getName()).log(	Level.SEVERE, null, ex);
 		}
 		return Response.status(Status.OK).build();
 	}

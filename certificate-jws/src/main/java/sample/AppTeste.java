@@ -4,7 +4,6 @@ import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.KeyStore;
@@ -22,6 +21,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 import br.gov.frameworkdemoiselle.certificate.signer.factory.PKCS7Factory;
 import br.gov.frameworkdemoiselle.certificate.signer.pkcs7.PKCS7Signer;
@@ -37,7 +37,7 @@ public class AppTeste {
 	
 	public static void main(String[] args) throws IOException, KeyStoreException, NoSuchProviderException, NoSuchAlgorithmException, CertificateException, UnrecoverableKeyException {
 
-		String jnlpIdentifier = "5ef7b056-41e4-41b5-af63-7e88f5fe304c";
+		String jnlpIdentifier = "c7a23873-b417-4bdb-be89-17d14c65bf94";
 		String jnlpService = "http://localhost:8080/certificate-jws-web/api/filemanager";
 
 		System.out.println("jnlp.identifier..: " + jnlpIdentifier);
@@ -73,35 +73,56 @@ public class AppTeste {
 		System.out.println(System.getProperty("user.home"));
 		utils.writeContentToDisk(zip,System.getProperty("user.home").concat(File.separator).concat("teste-resultado/").concat("resultado.zip"));
 
+		BufferedOutputStream dest = null;
 		InputStream in = new ByteArrayInputStream(zip);
 		ZipInputStream zipStream = new ZipInputStream(in);
-		ZipEntry entry = null;
-		
-		BufferedOutputStream dest = null;
-		
-		long tempoInicio = System.currentTimeMillis();
-		while ((entry = zipStream.getNextEntry()) != null) {
-			System.out.println("Extracting: " + entry);
-
-			FileInputStream stream = new FileInputStream(entry.getName());
-			ByteArrayOutputStream bos = new ByteArrayOutputStream();
-
-			byte[] buf = new byte[BUFFER_SIZE];
-            for (int readNum; (readNum = stream.read(buf)) != -1;) {
-                bos.write(buf, 0, readNum); //no doubt here is 0
+        ZipEntry entry;
+        long tempoInicio = System.currentTimeMillis();
+		while((entry = zipStream.getNextEntry()) != null) {
+            System.out.println("Extracting: " +entry);
+            int count;
+            byte content[];
+            byte buf[] = new byte[BUFFER_SIZE];
+            // write the files to the disk
+            //FileOutputStream fos = new FileOutputStream(entry.getName());
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            dest = new BufferedOutputStream(outputStream, BUFFER_SIZE);
+            while ((count = zipStream.read(buf, 0, BUFFER_SIZE)) != -1) {
+               dest.write(buf, 0, count);
             }
-	        byte[] content = bos.toByteArray();
-	        bos.close();
-	        System.out.println("Tempo para ler: "+(System.currentTimeMillis()-tempoInicio));
+            dest.flush();
+            dest.close();
+            content = outputStream.toByteArray();
 	        System.out.println("Assinando: " + entry);
-            byte[] signed = signer.signer(content);
-            System.out.println("Tempo para assinar: "+(System.currentTimeMillis()-tempoInicio));
-            //Grava o conteudo assinado no disco para verificar o resultado
-            utils.writeContentToDisk(content, System.getProperty("user.home").concat("/teste-resultado/").concat(File.separator).concat(entry.getName()));
-            utils.writeContentToDisk(signed, System.getProperty("user.home").concat("/teste-resultado/").concat(File.separator).concat(entry.getName()+".p7s"));
-            files.put(entry.getName(), signed);
+	        byte[] signed = signer.signer(content);
+	        System.out.println("Tempo para assinar: "+(System.currentTimeMillis()-tempoInicio));
+	        //Grava o conteudo assinado no disco para verificar o resultado
+	        utils.writeContentToDisk(content, System.getProperty("user.home").concat("/teste-resultado/").concat(File.separator).concat(entry.getName()));
+	        utils.writeContentToDisk(signed, System.getProperty("user.home").concat("/teste-resultado/").concat(File.separator).concat(entry.getName()+".p7s"));
+	        //files.put(entry.getName(), signed);
+	        zipStream.closeEntry();
+	        files.put(entry.getName(), signed);
+         }
+		
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		ZipOutputStream zipOut = new ZipOutputStream(out);
+
+		for (String fileName : files.keySet()) {
+			System.out.println("Adding " + fileName);
+			
+			zipOut.putNextEntry(new ZipEntry(fileName+".p7s"));
+			zipOut.write(files.get(fileName));
+			zipOut.setLevel(0);
+			zipOut.closeEntry();
+			
+			System.out.println("Finishedng file " + fileName);
 		}
-		zipStream.close();
-		System.out.println("Tempo Total: "+(System.currentTimeMillis()-tempoInicio));
+		
+		zipOut.close();
+		out.close();
+		
+		utils.uploadToURL(out.toByteArray(), jnlpService.concat("/upload/"));
+
+//		System.out.println("Tempo Total: "+(System.currentTimeMillis()-tempoInicio));
 	}
 }
