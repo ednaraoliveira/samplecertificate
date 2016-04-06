@@ -17,6 +17,25 @@
 					<source>1.7</source>
 				</configuration>
 			</plugin>
+<!-- 			<plugin> -->
+<!-- 				<groupId>org.apache.maven.plugins</groupId> -->
+<!-- 				<artifactId>maven-war-plugin</artifactId> -->
+<!-- 				<configuration> -->
+<!-- 					<archive> -->
+<!-- 						<manifest> -->
+<!-- 							<addDefaultImplementationEntries>true</addDefaultImplementationEntries> -->
+<!-- 						</manifest> -->
+<!-- 					</archive> -->
+<!-- 					<webResources> -->
+<!-- 						<resource> -->
+<!-- 							<directory>src/main/webapp/WEB-INF</directory> -->
+<!-- 							<targetPath>WEB-INF</targetPath> -->
+<!-- 							<filtering>true</filtering> -->
+<!-- 						</resource> -->
+<!-- 					</webResources> -->
+<!-- 				</configuration> -->
+<!-- 			</plugin> -->
+			
 		</plugins>
 	</build>
 
@@ -25,28 +44,45 @@
 			<groupId>javax.servlet</groupId>
 			<artifactId>javax.servlet-api</artifactId>
 			<version>3.1.0</version>
+			<scope>provided</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.jboss.resteasy</groupId>
 			<artifactId>resteasy-jaxrs</artifactId>
 			<version>2.3.1.GA</version>
+			<scope>provided</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.jboss.resteasy</groupId>
 			<artifactId>resteasy-jaxb-provider</artifactId>
 			<version>2.3.1.GA</version>
+			<scope>provided</scope>
 		</dependency>
 		<!-- Processa o retorno do Rest em JSON -->
 		<dependency>
 			<groupId>org.jboss.resteasy</groupId>
 			<artifactId>resteasy-jackson-provider</artifactId>
 			<version>2.2.1.GA</version>
+			<scope>provided</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.jboss.resteasy</groupId>
 			<artifactId>resteasy-multipart-provider</artifactId>
 			<version>2.3.1.GA</version>
+			<scope>provided</scope>
 		</dependency>
+		<dependency>
+		    <groupId>br.gov.frameworkdemoiselle.component</groupId>
+		    <artifactId>demoiselle-certificate-criptography</artifactId>
+		    <version>1.0.11</version>
+		    <scope>import</scope>
+		</dependency>
+		<dependency>
+		    <groupId>br.gov.frameworkdemoiselle.component</groupId>
+		    <artifactId>demoiselle-certificate-signer</artifactId>
+		    <version>1.0.11</version>
+		    <scope>import</scope>
+		</dependency>		
 	</dependencies>
 
 </project>

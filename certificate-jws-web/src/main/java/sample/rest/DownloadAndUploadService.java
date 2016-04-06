@@ -1,15 +1,11 @@
 package sample.rest;
 
-import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
@@ -21,9 +17,9 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
-import javax.jws.Oneway;
 import javax.servlet.ServletContext;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
@@ -38,6 +34,11 @@ import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.Response.Status;
 
 import sample.token.TokenManager;
+import br.gov.frameworkdemoiselle.certificate.criptography.Digest;
+import br.gov.frameworkdemoiselle.certificate.criptography.DigestAlgorithmEnum;
+import br.gov.frameworkdemoiselle.certificate.criptography.factory.DigestFactory;
+import br.gov.frameworkdemoiselle.certificate.signer.factory.PKCS7Factory;
+import br.gov.frameworkdemoiselle.certificate.signer.pkcs7.PKCS7Signer;
 
 @Path("filemanager")
 public class DownloadAndUploadService {
@@ -143,6 +144,61 @@ public class DownloadAndUploadService {
 		return response.build();
 
 	}
+	
+	@GET
+	@Path("downloadHash/{fileID}")
+	@Produces(MediaType.APPLICATION_OCTET_STREAM)
+	public Response downloadHash(@PathParam("fileID") String fileID) throws IOException {
+		System.out.println("br.gov.serpro.jnlp.rest.FileManagerService.download()");
+		
+		byte[] data = null;
+		Map<String, String> files = TokenManager.get(fileID);
+		ResponseBuilder response = null;
+		String downloadLocation = context.getRealPath("").concat(File.separator).concat(SERVER_DOWNLOAD_LOCATION_FOLDER);
+		
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		ZipOutputStream zipOut = new ZipOutputStream(out);
+		byte[] hash = null;
+		
+		for (String fileName : files.keySet()) {
+
+			//Lendo os arquivos
+			try {
+				// Carrega o arquivo utilizando new io
+				java.nio.file.Path path = Paths.get(downloadLocation.concat(fileName));
+				data = Files.readAllBytes(path);
+				
+				Digest digest = DigestFactory.getInstance().factoryDefault();
+				digest.setAlgorithm(DigestAlgorithmEnum.SHA_256);
+				hash = digest.digest(data);
+
+				
+
+			} catch (IOException ex) {
+				Logger.getLogger(DownloadAndUploadService.class.getName()).log(Level.SEVERE, null, ex);
+			}
+			
+			System.out.println("Adding " + fileName);
+			
+			zipOut.putNextEntry(new ZipEntry(fileName));
+			zipOut.write(hash);
+			zipOut.setLevel(0);
+			zipOut.closeEntry();
+			
+			System.out.println("Finishedng file " + fileName);
+		}
+		
+		zipOut.close();
+		out.close();
+		
+		data = out.toByteArray();
+
+		response = Response.ok((Object) data);
+		response.header("Content-Disposition", "attachment; filename=" + fileID +".zip");
+		return response.build();
+
+	}
+	
 
 	@POST
 	@Path("upload")
@@ -162,7 +218,7 @@ public class DownloadAndUploadService {
 				}
 			}
 
-			DataInputStream dis = new DataInputStream(payload);
+			//DataInputStream dis = new DataInputStream(payload);
 			ByteArrayOutputStream ba = new ByteArrayOutputStream();
 			byte[] buffer = new byte[FILE_BUFFER_SIZE];
 
@@ -182,9 +238,60 @@ public class DownloadAndUploadService {
 			java.nio.file.Path path = Paths.get(uploadLocation.concat(df.format(calendar.getTime())).concat(SIGNATURE_ZIP));
 			Files.write(path, ba.toByteArray(), StandardOpenOption.CREATE);
 
+			//add para ler zip
+			
+					
+			InputStream in = new ByteArrayInputStream(ba.toByteArray());
+			ZipInputStream zipStream = new ZipInputStream(in);
+			ZipEntry entry;
+			BufferedOutputStream dest = null;
+			while((entry = zipStream.getNextEntry()) != null) {
+	            int count;
+	            byte content[];
+	            byte buf[] = new byte[FILE_BUFFER_SIZE];
+	            // write the files to the disk
+	            //FileOutputStream fos = new FileOutputStream(entry.getName());
+	            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+	            dest = new BufferedOutputStream(outputStream, FILE_BUFFER_SIZE);
+	            while ((count = zipStream.read(buf, 0, FILE_BUFFER_SIZE)) != -1) {
+	               dest.write(buf, 0, count);
+	            }
+	            dest.flush();
+	            dest.close();
+	            content = outputStream.toByteArray();
+
+				check(entry.getName(), content);
+			}
+			
+
 		} catch (IOException ex) {
 			Logger.getLogger(DownloadAndUploadService.class.getName()).log(	Level.SEVERE, null, ex);
 		}
 		return Response.status(Status.OK).build();
 	}
+	
+	private boolean check(String name, byte[] content) {
+		
+		
+		String downloadLocation = context.getRealPath("").concat(File.separator).concat(SERVER_DOWNLOAD_LOCATION_FOLDER);
+		StringBuilder stringBuilder = new StringBuilder(name);
+		String fileName = name.replace(".p7s", "");
+		
+		System.out.println("validar aquivo.. :" + fileName);
+		byte[] data = null;
+		java.nio.file.Path path = Paths.get(downloadLocation.concat(fileName));
+		try {
+			data = Files.readAllBytes(path);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		PKCS7Signer signer = PKCS7Factory.getInstance().factoryDefault();
+		signer.check(data, content);
+		
+		return true;
+		
+	}
+	
 }

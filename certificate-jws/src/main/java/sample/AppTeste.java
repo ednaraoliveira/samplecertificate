@@ -25,6 +25,7 @@ import java.util.zip.ZipOutputStream;
 
 import br.gov.frameworkdemoiselle.certificate.signer.factory.PKCS7Factory;
 import br.gov.frameworkdemoiselle.certificate.signer.pkcs7.PKCS7Signer;
+import br.gov.frameworkdemoiselle.certificate.signer.pkcs7.attribute.MessageDigest;
 import br.gov.frameworkdemoiselle.certificate.signer.pkcs7.bc.policies.ADRBCMS_2_1;
 import br.gov.frameworkdemoiselle.certificate.ui.util.Utils;
 
@@ -37,7 +38,7 @@ public class AppTeste {
 	
 	public static void main(String[] args) throws IOException, KeyStoreException, NoSuchProviderException, NoSuchAlgorithmException, CertificateException, UnrecoverableKeyException {
 
-		String jnlpIdentifier = "c7a23873-b417-4bdb-be89-17d14c65bf94";
+		String jnlpIdentifier = "a36be210-9beb-4b83-a7a8-1c2bc112af5b";
 		String jnlpService = "http://localhost:8080/certificate-jws-web/api/filemanager";
 
 		System.out.println("jnlp.identifier..: " + jnlpIdentifier);
@@ -63,6 +64,7 @@ public class AppTeste {
         signer.setPrivateKey((PrivateKey) keyStore.getKey(alias, null));
         signer.setSignaturePolicy(new ADRBCMS_2_1());
         signer.setAttached(false);
+        
 		
 		
 		Utils utils = new Utils();
@@ -94,6 +96,7 @@ public class AppTeste {
             dest.close();
             content = outputStream.toByteArray();
 	        System.out.println("Assinando: " + entry);
+	        //signer.addAttribute(new MessageDigest(content));
 	        byte[] signed = signer.signer(content);
 	        System.out.println("Tempo para assinar: "+(System.currentTimeMillis()-tempoInicio));
 	        //Grava o conteudo assinado no disco para verificar o resultado
