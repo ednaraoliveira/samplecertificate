@@ -1,11 +1,7 @@
 package sample;
 
-import java.io.BufferedOutputStream;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -19,26 +15,21 @@ import java.security.cert.CertificateException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
-import java.util.zip.ZipOutputStream;
 
 import br.gov.frameworkdemoiselle.certificate.signer.factory.PKCS7Factory;
 import br.gov.frameworkdemoiselle.certificate.signer.pkcs7.PKCS7Signer;
-import br.gov.frameworkdemoiselle.certificate.signer.pkcs7.attribute.MessageDigest;
 import br.gov.frameworkdemoiselle.certificate.signer.pkcs7.bc.policies.ADRBCMS_2_1;
 import br.gov.frameworkdemoiselle.certificate.ui.util.Utils;
+import br.gov.frameworkdemoiselle.certificate.util.ZipBytes;
 
 public class AppTeste {
 
-	private final static int BUFFER_SIZE = 1024;
-
 	public static Map<String, byte[]> files = Collections.synchronizedMap(new HashMap<String, byte[]>());
-	
+	public static Map<String, byte[]> signatures = Collections.synchronizedMap(new HashMap<String, byte[]>());
 	
 	public static void main(String[] args) throws IOException, KeyStoreException, NoSuchProviderException, NoSuchAlgorithmException, CertificateException, UnrecoverableKeyException {
 
-		String jnlpIdentifier = "d7228a9c-92b7-4640-a9cf-6403e36261e7";
+		String jnlpIdentifier = "49cad10b-aa76-4608-923c-a69edccfa5c4";
 		String jnlpService = "http://localhost:8080/certificate-jws-web/api/filemanager";
 
 		System.out.println("jnlp.identifier..: " + jnlpIdentifier);
@@ -65,72 +56,33 @@ public class AppTeste {
         signer.setSignaturePolicy(new ADRBCMS_2_1());
         signer.setAttached(false);
         
-		
-		
-		Utils utils = new Utils();
-		// //Faz o download do conteudo a ser assinado
-		String conexao = jnlpService.concat("/download/");
-		System.out.println("Conectando em....: " + conexao);
-		byte[] zip = utils.downloadFromUrl(conexao, jnlpIdentifier);
-		System.out.println(System.getProperty("user.home"));
-		utils.writeContentToDisk(zip,System.getProperty("user.home").concat(File.separator).concat("teste-resultado/").concat("resultado.zip"));
+        String conexao = jnlpService.concat("/download/");
+        byte[] zip = Utils.downloadFromUrl(conexao, jnlpIdentifier);
+        
+        //Pegando arquivos do ZIP
+        files = ZipBytes.decompressing(zip);
+        Utils.writeContentToDisk(zip, System.getProperty("user.home").concat("/teste-resultado/").concat(File.separator).concat("files.zip"));
+        
+        //Assinando os arquivos
+        for (Map.Entry<String, byte[]> entry : files.entrySet()) {
+            Utils.writeContentToDisk(entry.getValue(), System.getProperty("user.home").concat("/teste-resultado/").concat(File.separator).concat(entry.getKey()));
+            
+            System.out.println("Assinando: " + entry.getKey());
+//		    StringBuilder sb = new StringBuilder();
+//		    for (byte b : entry.getValue()) {
+//		        sb.append(String.format("%02X", b));
+//		    }
+//		    System.out.println(entry + " - " + sb.toString());
+//	        signer.addAttribute(new MessageDigest(entry.getValue()));
+            
+            byte[] signed = signer.signer(entry.getValue());
+            signatures.put(entry.getKey(), signed);
+        }
+        
+        byte[] uploadZip = ZipBytes.compressing(signatures);
+        Utils.writeContentToDisk(uploadZip, System.getProperty("user.home").concat("/teste-resultado/").concat(File.separator).concat("resultado.zip"));
 
-		BufferedOutputStream dest = null;
-		InputStream in = new ByteArrayInputStream(zip);
-		ZipInputStream zipStream = new ZipInputStream(in);
-        ZipEntry entry;
-        long tempoInicio = System.currentTimeMillis();
-		while((entry = zipStream.getNextEntry()) != null) {
-            System.out.println("Extracting: " +entry);
-            int count;
-            byte content[];
-            byte buf[] = new byte[BUFFER_SIZE];
-            // write the files to the disk
-            //FileOutputStream fos = new FileOutputStream(entry.getName());
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            dest = new BufferedOutputStream(outputStream, BUFFER_SIZE);
-            while ((count = zipStream.read(buf, 0, BUFFER_SIZE)) != -1) {
-               dest.write(buf, 0, count);
-            }
-            dest.flush();
-            dest.close();
-            content = outputStream.toByteArray();
-	        System.out.println("Assinando: " + entry);
-		    StringBuilder sb = new StringBuilder();
-		    for (byte b : content) {
-		        sb.append(String.format("%02X", b));
-		    }
-		    System.out.println(entry + " - " + sb.toString());
-	        signer.addAttribute(new MessageDigest(content));
-	        byte[] signed = signer.signer(null);
-	        System.out.println("Tempo para assinar: "+(System.currentTimeMillis()-tempoInicio));
-	        //Grava o conteudo assinado no disco para verificar o resultado
-	        utils.writeContentToDisk(content, System.getProperty("user.home").concat("/teste-resultado/").concat(File.separator).concat(entry.getName()));
-	        utils.writeContentToDisk(signed, System.getProperty("user.home").concat("/teste-resultado/").concat(File.separator).concat(entry.getName()+".p7s"));
-	        //files.put(entry.getName(), signed);
-	        zipStream.closeEntry();
-	        files.put(entry.getName(), signed);
-         }
-		
-		ByteArrayOutputStream out = new ByteArrayOutputStream();
-		ZipOutputStream zipOut = new ZipOutputStream(out);
-
-		for (String fileName : files.keySet()) {
-			System.out.println("Adding " + fileName);
-			
-			zipOut.putNextEntry(new ZipEntry(fileName));
-			zipOut.write(files.get(fileName));
-			zipOut.setLevel(0);
-			zipOut.closeEntry();
-			
-			System.out.println("Finishedng file " + fileName);
-		}
-		
-		zipOut.close();
-		out.close();
-		
-		utils.uploadToURL(out.toByteArray(), jnlpService.concat("/upload/"), jnlpIdentifier);
-
-//		System.out.println("Tempo Total: "+(System.currentTimeMillis()-tempoInicio));
+        Utils.uploadToURL(uploadZip, jnlpService.concat("/upload/"), jnlpIdentifier);
+        
 	}
 }

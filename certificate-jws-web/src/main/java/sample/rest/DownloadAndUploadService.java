@@ -12,7 +12,9 @@ import java.nio.file.StandardOpenOption;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.GregorianCalendar;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -41,6 +43,7 @@ import br.gov.frameworkdemoiselle.certificate.criptography.DigestAlgorithmEnum;
 import br.gov.frameworkdemoiselle.certificate.criptography.factory.DigestFactory;
 import br.gov.frameworkdemoiselle.certificate.signer.factory.PKCS7Factory;
 import br.gov.frameworkdemoiselle.certificate.signer.pkcs7.PKCS7Signer;
+import br.gov.frameworkdemoiselle.certificate.util.ZipBytes;
 
 @Path("filemanager")
 public class DownloadAndUploadService {
@@ -56,81 +59,34 @@ public class DownloadAndUploadService {
 
 	@Context
 	HttpHeaders headers;
+	
+	String uploadLocation = context.getRealPath("")	.concat(File.separator).concat(SERVER_UPLOAD_LOCATION_FOLDER);
+	String downloadLocation = context.getRealPath("").concat(File.separator).concat(SERVER_DOWNLOAD_LOCATION_FOLDER);
 
+	
 	@GET
 	@Path("download")
 	@Produces(MediaType.APPLICATION_OCTET_STREAM)
 	public Response download() throws IOException {
-		System.out
-				.println("br.gov.serpro.jnlp.rest.FileManagerService.download()");
+		System.out.println("br.gov.serpro.jnlp.rest.FileManagerService.download()");
 
-		String token = headers.getRequestHeader("authorization").get(0)
-				.replace("Token ", "");
-
-		byte[] data = null;
-		Map<String, String> files = TokenManager.get(token);
+		byte[] content = null;
 		ResponseBuilder response = null;
-		String downloadLocation = context.getRealPath("")
-				.concat(File.separator).concat(SERVER_DOWNLOAD_LOCATION_FOLDER);
+		Map<String, byte[]> files = Collections.synchronizedMap(new HashMap<String, byte[]>());
+		
+		String token = headers.getRequestHeader("authorization").get(0).replace("Token ", "");
 
-		ByteArrayOutputStream out = new ByteArrayOutputStream();
-		ZipOutputStream zipOut = new ZipOutputStream(out);
-
-		byte[] hash = null;
-
-		for (String fileName : files.keySet()) {
-
-			// Lendo os arquivos
-			try {
-				// Carrega o arquivo utilizando new io
-				System.out.println("Add file...:" + fileName);
-
-				java.nio.file.Path path = Paths.get(downloadLocation
-						.concat(fileName));
-				data = Files.readAllBytes(path);
-
-				// Calcula Hash
-				Digest digest = DigestFactory.getInstance().factoryDefault();
-				digest.setAlgorithm(DigestAlgorithmEnum.SHA_256);
-				hash = digest.digest(data);
-				
-			    StringBuilder sb = new StringBuilder();
-			    for (byte b : hash) {
-			        sb.append(String.format("%02X", b));
-			    }
-			    System.out.println(fileName + " - " + sb.toString());
-				
-				
-				zipOut.putNextEntry(new ZipEntry(fileName));
-				zipOut.write(hash);
-				zipOut.setLevel(0);
-				zipOut.closeEntry();
-
-			} catch (IOException ex) {
-				Logger.getLogger(DownloadAndUploadService.class.getName()).log(
-						Level.SEVERE, null, ex);
-			}
+		//Buscar arquivos associados ao Token
+		for (Map.Entry<String, String> filesToSign : TokenManager.get(token).entrySet()) {
+			java.nio.file.Path path = Paths.get(downloadLocation.concat(filesToSign.getKey()));
+			content = Files.readAllBytes(path);
+			files.put(filesToSign.getKey(), content);
 		}
-
-		zipOut.close();
-		out.close();
-
-		data = out.toByteArray();
-
-		response = Response.ok((Object) data);
-		response.header("Content-Disposition", "attachment; filename=" + token
-				+ ".zip");
-
-		System.out.println("Varrendo o Token Manager no Download");
-		System.out.println("-------------------------------------");
-		Iterator entries = TokenManager.get(token).entrySet().iterator();
-		while (entries.hasNext()) {
-			Entry thisEntry = (Entry) entries.next();
-			Object key = thisEntry.getKey();
-			Object value = thisEntry.getValue();
-			System.out.println(key + " - " + value);
-		}
-		System.out.println("-------------------------------------");
+		
+		byte[] zipFiles = ZipBytes.compressing(files);
+		
+		response = Response.ok((Object) zipFiles);
+		response.header("Content-Disposition", "attachment; filename=" + token+ ".zip");
 
 		return response.build();
 
@@ -141,15 +97,11 @@ public class DownloadAndUploadService {
 	@Consumes(MediaType.APPLICATION_OCTET_STREAM)
 	public Response upload(InputStream payload) {
 		try {
-			System.out
-					.println("br.gov.serpro.jnlp.rest.DownloadAndUploadService.upload()");
+			System.out.println("br.gov.serpro.jnlp.rest.DownloadAndUploadService.upload()");
+			
+			Map<String, byte[]> signatures = Collections.synchronizedMap(new HashMap<String, byte[]>());
 
-			String token = headers.getRequestHeader("authorization").get(0)
-					.replace("Token ", "");
-
-			String uploadLocation = context.getRealPath("")
-					.concat(File.separator)
-					.concat(SERVER_UPLOAD_LOCATION_FOLDER);
+			String token = headers.getRequestHeader("authorization").get(0).replace("Token ", "");
 
 			File directory = new File(uploadLocation);
 			if (!directory.exists()) {
@@ -161,7 +113,6 @@ public class DownloadAndUploadService {
 				}
 			}
 
-			// DataInputStream dis = new DataInputStream(payload);
 			ByteArrayOutputStream ba = new ByteArrayOutputStream();
 			byte[] buffer = new byte[FILE_BUFFER_SIZE];
 
@@ -178,36 +129,14 @@ public class DownloadAndUploadService {
 			Calendar calendar = new GregorianCalendar();
 			DateFormat df = new SimpleDateFormat("yyyyMMdd_HHmmssSSS");
 
-			java.nio.file.Path path = Paths.get(uploadLocation.concat(
-					df.format(calendar.getTime())).concat(SIGNATURE_ZIP));
+			java.nio.file.Path path = Paths.get(uploadLocation.concat(df.format(calendar.getTime())).concat(SIGNATURE_ZIP));
 			Files.write(path, ba.toByteArray(), StandardOpenOption.CREATE);
-
-			// add para ler zip
-			InputStream in = new ByteArrayInputStream(ba.toByteArray());
-			ZipInputStream zipStream = new ZipInputStream(in);
-			ZipEntry entry;
-			BufferedOutputStream dest = null;
-			while ((entry = zipStream.getNextEntry()) != null) {
-				int count;
-				byte content[];
-				byte buf[] = new byte[FILE_BUFFER_SIZE];
-				// write the files to the disk
-				// FileOutputStream fos = new FileOutputStream(entry.getName());
-				ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-				dest = new BufferedOutputStream(outputStream, FILE_BUFFER_SIZE);
-				while ((count = zipStream.read(buf, 0, FILE_BUFFER_SIZE)) != -1) {
-					dest.write(buf, 0, count);
-				}
-				dest.flush();
-				dest.close();
-				content = outputStream.toByteArray();
-
-				path = Paths.get(uploadLocation.concat(entry.getName()).concat(SIGNATURE_EXTENSION));
-				Files.write(path, content, StandardOpenOption.CREATE);
-
-				TokenManager.get(token).put(entry.getName(),
-						entry.getName().concat(SIGNATURE_EXTENSION));
-				// check(entry.getName(), content);
+			
+			signatures = ZipBytes.decompressing(ba.toByteArray());
+			for (Map.Entry<String, byte[]> entry : signatures.entrySet()) {
+				path = Paths.get(uploadLocation.concat(entry.getKey()).concat(SIGNATURE_EXTENSION));
+				Files.write(path, entry.getValue(), StandardOpenOption.CREATE);
+				TokenManager.get(token).put(entry.getKey(),entry.getKey().concat(SIGNATURE_EXTENSION));
 			}
 
 			System.out.println("Varrendo o Token Manager no Upload");
