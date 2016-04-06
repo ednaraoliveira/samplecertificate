@@ -38,7 +38,7 @@ public class AppTeste {
 	
 	public static void main(String[] args) throws IOException, KeyStoreException, NoSuchProviderException, NoSuchAlgorithmException, CertificateException, UnrecoverableKeyException {
 
-		String jnlpIdentifier = "a36be210-9beb-4b83-a7a8-1c2bc112af5b";
+		String jnlpIdentifier = "d7228a9c-92b7-4640-a9cf-6403e36261e7";
 		String jnlpService = "http://localhost:8080/certificate-jws-web/api/filemanager";
 
 		System.out.println("jnlp.identifier..: " + jnlpIdentifier);
@@ -69,9 +69,9 @@ public class AppTeste {
 		
 		Utils utils = new Utils();
 		// //Faz o download do conteudo a ser assinado
-		String conexao = jnlpService.concat("/download/").concat(jnlpIdentifier);
+		String conexao = jnlpService.concat("/download/");
 		System.out.println("Conectando em....: " + conexao);
-		byte[] zip = utils.downloadFromUrl(conexao);
+		byte[] zip = utils.downloadFromUrl(conexao, jnlpIdentifier);
 		System.out.println(System.getProperty("user.home"));
 		utils.writeContentToDisk(zip,System.getProperty("user.home").concat(File.separator).concat("teste-resultado/").concat("resultado.zip"));
 
@@ -96,8 +96,13 @@ public class AppTeste {
             dest.close();
             content = outputStream.toByteArray();
 	        System.out.println("Assinando: " + entry);
-	        //signer.addAttribute(new MessageDigest(content));
-	        byte[] signed = signer.signer(content);
+		    StringBuilder sb = new StringBuilder();
+		    for (byte b : content) {
+		        sb.append(String.format("%02X", b));
+		    }
+		    System.out.println(entry + " - " + sb.toString());
+	        signer.addAttribute(new MessageDigest(content));
+	        byte[] signed = signer.signer(null);
 	        System.out.println("Tempo para assinar: "+(System.currentTimeMillis()-tempoInicio));
 	        //Grava o conteudo assinado no disco para verificar o resultado
 	        utils.writeContentToDisk(content, System.getProperty("user.home").concat("/teste-resultado/").concat(File.separator).concat(entry.getName()));
@@ -113,7 +118,7 @@ public class AppTeste {
 		for (String fileName : files.keySet()) {
 			System.out.println("Adding " + fileName);
 			
-			zipOut.putNextEntry(new ZipEntry(fileName+".p7s"));
+			zipOut.putNextEntry(new ZipEntry(fileName));
 			zipOut.write(files.get(fileName));
 			zipOut.setLevel(0);
 			zipOut.closeEntry();
@@ -124,7 +129,7 @@ public class AppTeste {
 		zipOut.close();
 		out.close();
 		
-		utils.uploadToURL(out.toByteArray(), jnlpService.concat("/upload/"));
+		utils.uploadToURL(out.toByteArray(), jnlpService.concat("/upload/"), jnlpIdentifier);
 
 //		System.out.println("Tempo Total: "+(System.currentTimeMillis()-tempoInicio));
 	}

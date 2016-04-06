@@ -67,16 +67,16 @@ public class App extends AbstractFrameExecute {
             System.out.println("Efetuando a  assinatura do conteudo");
             Utils utils = new Utils();
             //Faz o download do conteudo a ser assinado
-            String conexao = jnlpService.concat("/download/").concat(jnlpIdentifier);
-            System.out.println("Conectando em....: " + conexao);
-            byte[] content = utils.downloadFromUrl(conexao);
+    		String conexao = jnlpService.concat("/download/");
+    		System.out.println("Conectando em....: " + conexao);
+    		byte[] content = utils.downloadFromUrl(conexao, jnlpIdentifier);
             byte[] signed = signer.signer(content);
             // Grava o conteudo assinado no disco para verificar o resultado
             utils.writeContentToDisk(signed, System.getProperty("user.home").concat(File.separator).concat("resultado.p7s"));
 
             //Faz o upload do conteudo assinado
 //            utils.uploadToURL(signed, jnlpService.concat("/upload/").concat(jnlpIdentifier));
-            utils.uploadToURL(signed, jnlpService.concat("/upload/"));
+            utils.uploadToURL(signed, jnlpService.concat("/upload/"),jnlpIdentifier);
             JOptionPane.showMessageDialog(principal, "O arquivo foi assinado com sucesso.", "Mensagem", JOptionPane.INFORMATION_MESSAGE);
             System.exit(0);
         } catch (KeyStoreException | NoSuchAlgorithmException | UnrecoverableKeyException | ConectionException ex) {
