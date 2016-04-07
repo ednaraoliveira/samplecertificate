@@ -60,16 +60,14 @@ public class DownloadAndUploadService {
 	@Context
 	HttpHeaders headers;
 	
-	String uploadLocation = context.getRealPath("")	.concat(File.separator).concat(SERVER_UPLOAD_LOCATION_FOLDER);
-	String downloadLocation = context.getRealPath("").concat(File.separator).concat(SERVER_DOWNLOAD_LOCATION_FOLDER);
-
 	
-	@GET
+	
+	@POST
 	@Path("download")
-	@Produces(MediaType.APPLICATION_OCTET_STREAM)
+	@Produces("application/zip")
 	public Response download() throws IOException {
 		System.out.println("br.gov.serpro.jnlp.rest.FileManagerService.download()");
-
+		String downloadLocation = context.getRealPath("").concat(File.separator).concat(SERVER_DOWNLOAD_LOCATION_FOLDER);
 		byte[] content = null;
 		ResponseBuilder response = null;
 		Map<String, byte[]> files = Collections.synchronizedMap(new HashMap<String, byte[]>());
@@ -86,6 +84,7 @@ public class DownloadAndUploadService {
 		byte[] zipFiles = ZipBytes.compressing(files);
 		
 		response = Response.ok((Object) zipFiles);
+		response.header("Content-Type", "application/zip");
 		response.header("Content-Disposition", "attachment; filename=" + token+ ".zip");
 
 		return response.build();
@@ -94,14 +93,16 @@ public class DownloadAndUploadService {
 
 	@POST
 	@Path("upload")
-	@Consumes(MediaType.APPLICATION_OCTET_STREAM)
+	@Consumes("application/zip")
 	public Response upload(InputStream payload) {
-		try {
-			System.out.println("br.gov.serpro.jnlp.rest.DownloadAndUploadService.upload()");
-			
-			Map<String, byte[]> signatures = Collections.synchronizedMap(new HashMap<String, byte[]>());
+		String uploadLocation = context.getRealPath("")	.concat(File.separator).concat(SERVER_UPLOAD_LOCATION_FOLDER);
+		System.out.println("br.gov.serpro.jnlp.rest.DownloadAndUploadService.upload()");
+		
+		Map<String, byte[]> signatures = Collections.synchronizedMap(new HashMap<String, byte[]>());
 
-			String token = headers.getRequestHeader("authorization").get(0).replace("Token ", "");
+		String token = headers.getRequestHeader("authorization").get(0).replace("Token ", "");
+		
+		try {
 
 			File directory = new File(uploadLocation);
 			if (!directory.exists()) {
@@ -139,23 +140,11 @@ public class DownloadAndUploadService {
 				TokenManager.get(token).put(entry.getKey(),entry.getKey().concat(SIGNATURE_EXTENSION));
 			}
 
-			System.out.println("Varrendo o Token Manager no Upload");
-			System.out.println("-------------------------------------");
-			Iterator entries = TokenManager.get(token).entrySet().iterator();
-			while (entries.hasNext()) {
-				Entry thisEntry = (Entry) entries.next();
-				Object key = thisEntry.getKey();
-				Object value = thisEntry.getValue();
-				System.out.println(key + " - " + value);
-			}
-			System.out.println("-------------------------------------");
-			check(token);
-
 		} catch (IOException ex) {
-			Logger.getLogger(DownloadAndUploadService.class.getName()).log(
-					Level.SEVERE, null, ex);
+			Logger.getLogger(DownloadAndUploadService.class.getName()).log(Level.SEVERE, null, ex);
 		}
-		return Response.status(Status.OK).build();
+		check(token);
+		return Response.status(Status.NO_CONTENT).build();
 	}
 
 	private boolean check(String token) {

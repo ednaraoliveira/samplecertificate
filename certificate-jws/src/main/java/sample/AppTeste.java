@@ -29,7 +29,7 @@ public class AppTeste {
 	
 	public static void main(String[] args) throws IOException, KeyStoreException, NoSuchProviderException, NoSuchAlgorithmException, CertificateException, UnrecoverableKeyException {
 
-		String jnlpIdentifier = "49cad10b-aa76-4608-923c-a69edccfa5c4";
+		String jnlpIdentifier = "091f5457-1cf2-4157-ae15-051e8639da12";
 		String jnlpService = "http://localhost:8080/certificate-jws-web/api/filemanager";
 
 		System.out.println("jnlp.identifier..: " + jnlpIdentifier);
@@ -68,13 +68,6 @@ public class AppTeste {
             Utils.writeContentToDisk(entry.getValue(), System.getProperty("user.home").concat("/teste-resultado/").concat(File.separator).concat(entry.getKey()));
             
             System.out.println("Assinando: " + entry.getKey());
-//		    StringBuilder sb = new StringBuilder();
-//		    for (byte b : entry.getValue()) {
-//		        sb.append(String.format("%02X", b));
-//		    }
-//		    System.out.println(entry + " - " + sb.toString());
-//	        signer.addAttribute(new MessageDigest(entry.getValue()));
-            
             byte[] signed = signer.signer(entry.getValue());
             signatures.put(entry.getKey(), signed);
         }
