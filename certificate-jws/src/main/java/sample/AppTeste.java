@@ -38,7 +38,7 @@ public class AppTeste {
 		//Apagar
 		
 		String configName = "/home/01534562567/drivers.config";
-		String PIN = "qwaszx12!";
+		String PIN = "";
 		Certificate[] certificates = null;
 		Provider p = new sun.security.pkcs11.SunPKCS11(configName);
 		Security.addProvider(p);

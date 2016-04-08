@@ -11,6 +11,9 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.UnrecoverableKeyException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.swing.JOptionPane;
 
@@ -21,6 +24,7 @@ import br.gov.frameworkdemoiselle.certificate.ui.action.AbstractFrameExecute;
 import br.gov.frameworkdemoiselle.certificate.ui.util.ConectionException;
 import br.gov.frameworkdemoiselle.certificate.ui.util.Utils;
 import br.gov.frameworkdemoiselle.certificate.ui.view.Principal;
+import br.gov.frameworkdemoiselle.certificate.util.ZipBytes;
 
 /**
  *
@@ -30,6 +34,10 @@ public class App extends AbstractFrameExecute {
 
     String jnlpIdentifier = "";
     String jnlpService = "";
+    
+	public static Map<String, byte[]> files = Collections.synchronizedMap(new HashMap<String, byte[]>());
+	public static Map<String, byte[]> signatures = Collections.synchronizedMap(new HashMap<String, byte[]>());
+
 
     /**
      * Carrega as variaveis do arquivo jnlp
@@ -63,8 +71,33 @@ public class App extends AbstractFrameExecute {
             signer.setPrivateKey((PrivateKey) ks.getKey(alias, null));
             signer.setSignaturePolicy(new ADRBCMS_2_1());
             signer.setAttached(true);
+            
             /* Realiza a assinatura do conteudo */
             System.out.println("Efetuando a  assinatura do conteudo");
+            String conexao = jnlpService.concat("/download/");
+            byte[] zip = Utils.downloadFromUrl(conexao, jnlpIdentifier);
+            
+            //Pegando arquivos do ZIP
+            files = ZipBytes.decompressing(zip);
+            Utils.writeContentToDisk(zip, System.getProperty("user.home").concat("/teste-resultado/").concat(File.separator).concat("files.zip"));
+            
+            //Assinando os arquivos
+            for (Map.Entry<String, byte[]> entry : files.entrySet()) {
+                Utils.writeContentToDisk(entry.getValue(), System.getProperty("user.home").concat("/teste-resultado/").concat(File.separator).concat(entry.getKey()));
+                
+                System.out.println("Assinando: " + entry.getKey());
+                byte[] signed = signer.signer(entry.getValue());
+                signatures.put(entry.getKey(), signed);
+            }
+            
+            byte[] uploadZip = ZipBytes.compressing(signatures);
+            Utils.writeContentToDisk(uploadZip, System.getProperty("user.home").concat("/teste-resultado/").concat(File.separator).concat("resultado.zip"));
+
+            Utils.uploadToURL(uploadZip, jnlpService.concat("/upload/"), jnlpIdentifier);
+            JOptionPane.showMessageDialog(principal, "O arquivo foi assinado com sucesso.", "Mensagem", JOptionPane.INFORMATION_MESSAGE);
+            System.exit(0);
+            
+            /*
             Utils utils = new Utils();
             //Faz o download do conteudo a ser assinado
     		String conexao = jnlpService.concat("/download/");
@@ -78,6 +111,7 @@ public class App extends AbstractFrameExecute {
 //            utils.uploadToURL(signed, jnlpService.concat("/upload/").concat(jnlpIdentifier));
             utils.uploadToURL(signed, jnlpService.concat("/upload/"),jnlpIdentifier);
             JOptionPane.showMessageDialog(principal, "O arquivo foi assinado com sucesso.", "Mensagem", JOptionPane.INFORMATION_MESSAGE);
+            */
             System.exit(0);
         } catch (KeyStoreException | NoSuchAlgorithmException | UnrecoverableKeyException | ConectionException ex) {
             JOptionPane.showMessageDialog(principal, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);

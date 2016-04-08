@@ -7,7 +7,6 @@ import java.util.UUID;
 
 public class TokenManager {
 	
-	
 	private static Map<String,  Map<String, String>> map = Collections.synchronizedMap(new HashMap<String, Map<String, String>>());
 
 	public static String put(Map<String, String> files) {

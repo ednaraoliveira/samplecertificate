@@ -1,7 +1,5 @@
 package sample.rest;
 
-import java.io.BufferedOutputStream;
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -20,47 +18,37 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
-import java.util.zip.ZipOutputStream;
 
 import javax.servlet.ServletContext;
 import javax.ws.rs.Consumes;
-import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.HttpHeaders;
-import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.Response.Status;
 
 import sample.token.TokenManager;
-import br.gov.frameworkdemoiselle.certificate.criptography.Digest;
-import br.gov.frameworkdemoiselle.certificate.criptography.DigestAlgorithmEnum;
-import br.gov.frameworkdemoiselle.certificate.criptography.factory.DigestFactory;
 import br.gov.frameworkdemoiselle.certificate.signer.factory.PKCS7Factory;
 import br.gov.frameworkdemoiselle.certificate.signer.pkcs7.PKCS7Signer;
 import br.gov.frameworkdemoiselle.certificate.util.ZipBytes;
 
 @Path("filemanager")
-public class DownloadAndUploadService {
+public class DownloadAndUploadREST {
 
 	private final String SERVER_DOWNLOAD_LOCATION_FOLDER = "file/source/";
 	private final String SERVER_UPLOAD_LOCATION_FOLDER = "file/signature/";
 	private final String SIGNATURE_EXTENSION = ".p7s";
 	private final String SIGNATURE_ZIP = ".zip";
-	private final int FILE_BUFFER_SIZE = 8192;
+	private final int FILE_BUFFER_SIZE = 4096;
 
 	@Context
 	ServletContext context;
 
 	@Context
 	HttpHeaders headers;
-	
-	
 	
 	@POST
 	@Path("download")
@@ -141,7 +129,7 @@ public class DownloadAndUploadService {
 			}
 
 		} catch (IOException ex) {
-			Logger.getLogger(DownloadAndUploadService.class.getName()).log(Level.SEVERE, null, ex);
+			Logger.getLogger(DownloadAndUploadREST.class.getName()).log(Level.SEVERE, null, ex);
 		}
 		check(token);
 		return Response.status(Status.NO_CONTENT).build();

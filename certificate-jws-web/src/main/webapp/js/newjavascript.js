@@ -4,8 +4,8 @@ $("#enviar").click(function () {
     $.each($("input[name='arquivo']:checked"), function(){            
     	id.push($(this).val());
     });
-    $.getJSON("api/token/generate/" + id, function (data) {
-        $("#hash").val(data.message);
+    $.get("api/token/generate/" + id, function (data) {
+        $("#hash").val(data);
         $('#jnlpForm').submit();
     });
 

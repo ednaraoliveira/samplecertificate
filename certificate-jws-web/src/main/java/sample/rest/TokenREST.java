@@ -22,22 +22,22 @@ import sample.token.TokenManager;
 
 
 @Path("token")
-public class TokenService {
+public class TokenREST {
 
     MessageDigest md = null;
 
-    public TokenService() {
+    public TokenREST() {
         try {
             md = MessageDigest.getInstance("MD5");
         } catch (NoSuchAlgorithmException ex) {
-            Logger.getLogger(TokenService.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(TokenREST.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
     @GET
     @Path("generate/{info}")
-    @Produces("application/json")
-    public MyMessage generate(@PathParam("info") String info) {
+    @Produces("text/plain")
+    public String generate(@PathParam("info") String info) {
     	
     	Map<String, String> files = Collections.synchronizedMap(new HashMap<String, String>());
     	for (String nameFiles : info.split(",")) {
@@ -45,25 +45,9 @@ public class TokenService {
 		}
     	
     	String token = TokenManager.put(files);
-    	MyMessage message = new MyMessage(token);
-    	System.out.println(message);
-        return message;
-    }
-
-//    @POST
-//    @Path("/validate")
-//    public Response validate(String digest, String seed) {
-//        System.out.println("br.gov.serpro.jnlp.rest.TokenService.validate()");
-//        return null;
-//    }
-
-    private String toHexFormat(byte[] byteData) {
-        //convert the byte to hex format
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < byteData.length; i++) {
-            sb.append(Integer.toString((byteData[i] & 0xff) + 0x100, 16).substring(1));
-        }
-        return sb.toString();
+    	//MyMessage message = new MyMessage(token);
+    	System.out.println(token);
+        return token;
     }
 
 }
